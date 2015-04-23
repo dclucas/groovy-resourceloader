@@ -73,15 +73,7 @@ def registerResource(resource) {
 def loadResources(dirPath = 'resources') {
 	l = loadDir dirPath, { it.name.endsWith 'Resource.groovy' }
 	l.each { registerResource it }
-}
-
-def registerSpec(spec) {
-	println spec
-}
-
-def loadSpecs(dirPath = 'resources') {
-	l = loadDir dirPath, { it.name.endsWith 'Spec.groovy' }
-	l.each { registerSpec it }
+	return l
 }
 
 // todo: figure out how to turn this into a one argument 'Pet' call
@@ -128,6 +120,41 @@ def genGetSchema(collectionName, furtherSpecs  = null) {
 		schema = [ "/$collectionName": coreSchema ]
 		JsonOutput.toJson(schema)
 }
-loadResources()
 
-loadSpecs()
+// todo: this whole plural is looking crappy right now. Refactor ASAP.
+def getSpecPlural(spec, resources) {
+	def resName = (spec =~ /(.*)Spec.*/)[0][1]
+	def res = resources.find { it =~ "^${resName}.*" }
+	getPlural(res)
+}
+
+def registerSpec(spec, resources) {
+	[ "/${getSpecPlural(spec, resources)}": spec.schema() ]
+}
+
+def registerActions(spec, resources) {
+
+}
+
+def loadSpecs(resources, dirPath = 'resources') {
+	def baseText = new File('resources/apiSpec.template').text
+	def binding = ['host': 'loalhost', 'version': '0.1', 'description':'api description', 'title':'api title']
+	def engine = new groovy.text.SimpleTemplateEngine()
+	def template = engine.createTemplate(baseText).make(binding)
+	def specs = new groovy.json.JsonSlurper().parseText(template.toString())
+	def resSpecs = loadDir(dirPath, { it.name.endsWith 'Spec.groovy' })
+
+	specs.definitions << resSpecs.collect { registerSpec it, resources }
+
+	spark.Spark.get "/swagger", { req, res -> 
+        res.header("Access-Control-Allow-Origin", '*');
+        res.header("Access-Control-Request-Method", '*');
+        res.header("Access-Control-Allow-Headers", '*');
+
+		JsonOutput.toJson(specs)
+	}
+}
+
+def resources = loadResources()
+
+loadSpecs(resources)
