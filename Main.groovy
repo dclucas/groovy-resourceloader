@@ -121,9 +121,13 @@ def genGetSchema(collectionName, furtherSpecs  = null) {
 		JsonOutput.toJson(schema)
 }
 
+//todo: and the need for refactoring just increases...
+def getSpecRes(spec) {
+	(spec =~ /(.*)Spec.*/)[0][1]
+}
 // todo: this whole plural is looking crappy right now. Refactor ASAP.
 def getSpecPlural(spec, resources) {
-	def resName = (spec =~ /(.*)Spec.*/)[0][1]
+	def resName = getSpecRes(spec)
 	def res = resources.find { it =~ "^${resName}.*" }
 	getPlural(res)
 }
@@ -132,19 +136,28 @@ def registerSpec(spec, resources) {
 	[ "/${getSpecPlural(spec, resources)}": spec.schema() ]
 }
 
-def registerActions(spec, resources) {
+def resolveTemplate(templateName, binding) {
+	def baseText = new File("templates/${templateName}.template.json").text
+	def engine = new groovy.text.SimpleTemplateEngine()
+	def template = engine.createTemplate(baseText).make(binding)
+	def finalText = template.toString()
+	new groovy.json.JsonSlurper().parseText(finalText)
+}
 
+def registerActions(spec, resources) {
+	def pl = getSpecPlural(spec, resources)
+	def getSpec = resolveTemplate('getSpec', [ 'plural': pl, 'resource': getSpecRes(spec), 'ref': '$ref' ])
+	def actionsSpec = [ 'get': getSpec ]
+	//def pathSpec = ['paths': [ "/$pl": getSpec ] ]
+	spec.spec(actionsSpec)
+	actionsSpec
 }
 
 def loadSpecs(resources, dirPath = 'resources') {
-	def baseText = new File('resources/apiSpec.template').text
-	def binding = ['host': 'loalhost', 'version': '0.1', 'description':'api description', 'title':'api title']
-	def engine = new groovy.text.SimpleTemplateEngine()
-	def template = engine.createTemplate(baseText).make(binding)
-	def specs = new groovy.json.JsonSlurper().parseText(template.toString())
+	def specs = resolveTemplate('apiSpec', ['host': 'localhost', 'version': '0.1', 'description':'api description', 'title':'api title'])
 	def resSpecs = loadDir(dirPath, { it.name.endsWith 'Spec.groovy' })
-
 	specs.definitions << resSpecs.collect { registerSpec it, resources }
+	specs.paths << resSpecs.collect { registerActions it, resources }
 
 	spark.Spark.get "/swagger", { req, res -> 
         res.header("Access-Control-Allow-Origin", '*');
