@@ -1,12 +1,10 @@
 @Grab('com.sparkjava:spark-core:2.1')
 @Grab('org.millarts:groovy-pluralize-en:0.2.1')
-//@Grab('org.atteo:evo-inflector:1.2')
 
 import groovy.io.FileType
 import static spark.Spark.*
 import spark.*
 import groovy.json.JsonOutput
-//import org.atteo.evo.inflector.*
 
 def loadClass(file) {
 	this.class.classLoader
@@ -87,8 +85,6 @@ def genJsonSchema(resourceName, targetSchema) {
 	jsonSchema
 }
 
-//println genJsonSchema('Pet', PetSchema)
-
 def genGetSchema(collectionName, furtherSpecs  = null) {
 		// todo: is it valid to assume that these elements should go in all GET specs?
 		// overwriting is easy with the << operator, but removing entries would be tricky
@@ -148,7 +144,6 @@ def registerActions(spec, resources) {
 	def pl = getSpecPlural(spec, resources)
 	def getSpec = resolveTemplate('getSpec', [ 'plural': pl, 'resource': getSpecRes(spec), 'ref': '$ref' ])
 	def actionsSpec = [ 'get': getSpec ]
-	//def pathSpec = ['paths': [ "/$pl": getSpec ] ]
 	spec.spec(actionsSpec)
 	actionsSpec
 }
