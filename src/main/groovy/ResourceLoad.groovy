@@ -11,18 +11,11 @@ class ResourceLoader {
         gcl.parseClass(file).newInstance()
     }
 
-    def loadDir(dirPath, fileFiler= null) {
-        def list = []
-
-        def filter = fileFiler ?: { it.name.endsWith '.groovy' }
-
-        new File(dirPath).eachFileRecurse (FileType.FILES) {
-            if (filter(it) ) {
-                list << loadClass(it)
-            }
+    def loadSpec(resName) {
+        def f = new File("resources/${resName}Spec.groovy")
+        if (f.exists()) {
+            return loadClass(f)
         }
-
-        list
     }
 
     def containsMethod(obj, methodName) {
@@ -59,6 +52,51 @@ class ResourceLoader {
         println "Registering $col.$action"
     }
 
+    def loadResource(resFile, map) {
+        def resName = (resFile.name =~ /(.*)Resource.groovy/)[0][1]
+        def h = loadClass(resFile)
+        def s = loadSpec(resName)
+        map."$resName" = [
+            handler: h,
+            plural: getCollectionName(h),
+            specs: s,
+            // todo: better initialization here
+            actions: new LinkedHashMap()
+        ]
+    }
+
+    def loadFiles(dirPath) {
+        // todo: proper map initialization here
+        def map = new LinkedHashMap()
+        new File(dirPath).eachFileRecurse (FileType.FILES) {
+            if ( it.name.endsWith('Resource.groovy')) {
+                // to-do: remove this side effect later on
+                loadResource(it, map)
+            }
+        }
+        map
+    }
+
+    def registerResourceAction(resourceDesc, action) {
+        resourceDesc.actions."$action" = action
+        
+    }
+
+    def registerActions(resourceDesc) {
+        ['get', 'post', 'put', 'delete', 'getById'].each { action ->
+            if (containsMethod(resourceDesc.handler, action)) {
+                registerResourceAction resourceDesc, action
+            }
+        }
+    }
+
+    def registerResources(dirPath) {
+        def map = loadFiles(dirPath)
+        map.each {
+            registerActions it.value
+        }
+    }
+
     def registerResource(resource) {
         ['get', 'post', 'put', 'delete', 'getById'].each { action ->
             if (containsMethod(resource, action)) {
@@ -67,60 +105,33 @@ class ResourceLoader {
         }
     }
 
+    def loadDir(dirPath, fileFiler= null) {
+        def list = []
+
+        def filter = fileFiler ?: { it.name.endsWith '.groovy' }
+
+        new File(dirPath).eachFileRecurse (FileType.FILES) {
+            if (filter(it) ) {
+                list << loadClass(it)
+            }
+        }
+
+        list
+    }
+
+
     def loadResources(dirPath = 'resources') {
         def l = loadDir dirPath, { it.name.endsWith 'Resource.groovy' }
         l.each { registerResource it }
         return l
     }
 
-// todo: figure out how to turn this into a one argument 'Pet' call
-    def genJsonSchema(resourceName, targetSchema) {
-        def cfg = new ConfigSlurper().parse(targetSchema)
-        def jsonSchema = JsonOutput.toJson([
-                "definitions": [
-                        "$resourceName" : cfg
-                ]
-        ])
-        jsonSchema
-    }
-
-    def genGetSchema(collectionName, furtherSpecs  = null) {
-        // todo: is it valid to assume that these elements should go in all GET specs?
-        // overwriting is easy with the << operator, but removing entries would be tricky
-        def coreSchema = [
-                "get": [
-                        "description": "Returns all $collectionName from the system that the user has access to",
-                        "produces"   : [
-                                "application/json"
-                        ],
-                        "responses"  : [
-                                "200": [
-                                        "description": "A list of $collectionName.",
-                                        "schema"     : [
-                                                "type" : "array",
-                                                "items": [
-                                                        "\$ref": "/swagger/$collectionName-definitions.json"
-                                                ]
-                                        ]
-                                ]
-                        ]
-                ],
-                "foo": "bar"
-        ]
-
-        if (furtherSpecs) {
-            coreSchema.get << furtherSpecs
-        }
-
-        schema = [ "/$collectionName": coreSchema ]
-        JsonOutput.toJson(schema)
-    }
-
-//todo: and the need for refactoring just increases...
+    //todo: and the need for refactoring just increases...
     def getSpecRes(spec) {
         (spec =~ /(.*)Spec.*/)[0][1]
     }
-// todo: this whole plural is looking crappy right now. Refactor ASAP.
+
+    // todo: this whole plural is looking crappy right now. Refactor ASAP.
     def getSpecPlural(spec, resources) {
         def resName = getSpecRes(spec)
         def res = resources.find { it =~ "^${resName}.*" }
@@ -165,5 +176,6 @@ class ResourceLoader {
     def loadAllResources(){
         def res = loadResources()
         loadSpecs(res)
+        registerResources('resources')
     }
 }

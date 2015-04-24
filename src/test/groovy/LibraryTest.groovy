@@ -33,9 +33,8 @@ class LibraryTest extends Specification{
         //def result = lib.someLibraryMethod()
         def client = new RESTClient("http://localhost:4567/", JSON)
         def resp = client.get(path : "swagger")
-        println 'foo'
+        println resp
         then:
-        //result == true
-        1 == 1
+        resp.status == 200
     }
 }
