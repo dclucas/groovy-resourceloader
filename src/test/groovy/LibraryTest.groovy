@@ -5,15 +5,37 @@
  * @author diogo, @date 4/24/15 12:50 PM
  */
 
+/*
+import groovyx.net.http.RESTClient
+import static groovyx.net.http.ContentType.JSON
+
+
+restClient = new RESTClient( 'http://localhost:8080/CustomerDB/webresources/', JSON)
+def resp = restClient.get(path: 'entities.customer')
+assert resp.status == 200
+println resp.data
+def respHeaders = resp.getAllHeaders()
+respHeaders.each { header ->
+ println header
+}
+*/
+
 import spock.lang.Specification
+import groovyx.net.http.RESTClient
+import static groovyx.net.http.ContentType.JSON
 
 class LibraryTest extends Specification{
     def "someLibraryMethod returns true"() {
         setup:
-        Library lib = new Library()
+        //Library lib = new Library()
+        Main.initServer()
         when:
-        def result = lib.someLibraryMethod()
+        //def result = lib.someLibraryMethod()
+        def client = new RESTClient("http://localhost:4567/", JSON)
+        def resp = client.get(path : "swagger")
+        println 'foo'
         then:
-        result == true
+        //result == true
+        1 == 1
     }
 }
