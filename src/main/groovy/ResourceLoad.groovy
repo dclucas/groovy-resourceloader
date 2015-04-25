@@ -8,31 +8,32 @@ import groovy.json.JsonOutput
 @Slf4j
 class ResourceLoader {
     def gcl = new GroovyClassLoader()
-
     def engine = new groovy.text.SimpleTemplateEngine()
-
     def standardTemplates
-
     def apiCfg
+    def cfg
 
-    ResourceLoader(apiCfg = ['host': 'localhost', 'version': '0.1', 'description': 'api description', 'title': 'api title']) {
-        this.apiCfg = apiCfg
+    ResourceLoader(
+        specProperties = ['host': 'localhost', 'version': '0.1', 'description': 'api description', 'title': 'api title'],
+        cfg = [templatesDir: 'templates', resourcesDir:'resources']) {
+        this.apiCfg = specProperties
+        this.cfg = cfg
         loadStandardTemplates()
     }
 
     def loadStandardTemplate(action) {
-        def baseText = new File("templates/${action}Spec.template.json").text
+        def baseText = new File("${cfg.templatesDir}/${action}Spec.template.json").text
         engine.createTemplate(baseText)
     }
 
     def loadStandardTemplates() {
         standardTemplates = [
-                'api'    : loadStandardTemplate('api'),
-                'get'    : loadStandardTemplate('get'),
-                'getById': loadStandardTemplate('getById'),
-                'post'   : loadStandardTemplate('post'),
-                'put'    : loadStandardTemplate('put'),
-                'delete' : loadStandardTemplate('delete')
+            'api'    : loadStandardTemplate('api'),
+            'get'    : loadStandardTemplate('get'),
+            'getById': loadStandardTemplate('getById'),
+            'post'   : loadStandardTemplate('post'),
+            'put'    : loadStandardTemplate('put'),
+            'delete' : loadStandardTemplate('delete')
         ]
     }
 
@@ -41,7 +42,7 @@ class ResourceLoader {
     }
 
     def loadSpec(resName) {
-        def f = new File("resources/${resName}Spec.groovy")
+        def f = new File("${cfg.resourcesDir}/${resName}Spec.groovy")
         if (f.exists()) {
             return loadClass(f)
         }
