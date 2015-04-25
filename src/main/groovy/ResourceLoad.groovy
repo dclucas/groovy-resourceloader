@@ -13,7 +13,10 @@ class ResourceLoader {
 
     def standardTemplates
 
-    ResourceLoader() {
+    def apiCfg
+
+    ResourceLoader(apiCfg = ['host': 'localhost', 'version': '0.1', 'description': 'api description', 'title': 'api title']) {
+        this.apiCfg = apiCfg
         loadStandardTemplates()
     }
 
@@ -126,7 +129,7 @@ class ResourceLoader {
     }
 
     def registerSpecs(resourceDesc, doc) {
-        doc.definitions["/${resourceDesc.plural}"] = resourceDesc.specs.schema()
+        doc.definitions["${resourceDesc.name}"] = resourceDesc.specs.schema()
         if (!resourceDesc.actions.any()) {
             return
         }
@@ -139,7 +142,7 @@ class ResourceLoader {
 
     def registerResources(dirPath) {
         def map = loadFiles(dirPath)
-        def doc = scaffoldTemplate('api', ['host': 'localhost', 'version': '0.1', 'description':'api description', 'title':'api title'])
+        def doc = scaffoldTemplate('api', apiCfg)
 
         map.each {
             registerActions it.value
