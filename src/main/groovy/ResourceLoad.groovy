@@ -42,6 +42,14 @@ class ResourceLoader {
         if (f.exists()) {
             return loadClass(f)
         }
+
+        return [ spec: { s ->
+            log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
+            s
+        }, schema: {
+            log.warn "No schema defined for resource $resName. References in swagger will be broken."
+            null
+        } ]
     }
 
     def containsMethod(obj, methodName) {
@@ -118,13 +126,7 @@ class ResourceLoader {
     }
 
     def registerSpecs(resourceDesc, doc) {
-        if (resourceDesc.specs) {
-            doc.definitions["/${resourceDesc.plural}"] = resourceDesc.specs.schema()
-        }
-        else {
-            log.warn "No specs for resource: ${resourceDesc.name}."
-        }
-
+        doc.definitions["/${resourceDesc.plural}"] = resourceDesc.specs.schema()
         if (!resourceDesc.actions.any()) {
             return
         }
