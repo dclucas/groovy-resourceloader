@@ -1,17 +1,18 @@
 import groovy.io.FileType
+import groovy.text.SimpleTemplateEngine
 import groovy.util.logging.Slf4j
+import groovy.json.JsonOutput
 
 import static spark.Spark.*
 import spark.*
-import groovy.json.JsonOutput
 
 @Slf4j
 class ResourceLoader {
-    def gcl = new GroovyClassLoader()
-    def engine = new groovy.text.SimpleTemplateEngine()
-    def standardTemplates
-    def apiCfg
-    def cfg
+    private def gcl = new GroovyClassLoader()
+    private def engine = new SimpleTemplateEngine()
+    private def standardTemplates
+    private def apiCfg
+    private def cfg
 
     ResourceLoader(
         specProperties = ['host': 'localhost', 'version': '0.1', 'description': 'api description', 'title': 'api title'],
@@ -21,12 +22,12 @@ class ResourceLoader {
         loadStandardTemplates()
     }
 
-    def loadStandardTemplate(action) {
+    private def loadStandardTemplate(action) {
         def baseText = new File("${cfg.templatesDir}/${action}Spec.template.json").text
         engine.createTemplate(baseText)
     }
 
-    def loadStandardTemplates() {
+    private def loadStandardTemplates() {
         standardTemplates = [
             'api'    : loadStandardTemplate('api'),
             'get'    : loadStandardTemplate('get'),
@@ -37,11 +38,11 @@ class ResourceLoader {
         ]
     }
 
-    def loadClass(file) {
+    private def loadClass(file) {
         gcl.parseClass(file).newInstance()
     }
 
-    def loadSpec(resName) {
+    private def loadSpec(resName) {
         def f = new File("${cfg.resourcesDir}/${resName}Spec.groovy")
         if (f.exists()) {
             return loadClass(f)
@@ -56,18 +57,18 @@ class ResourceLoader {
         } ]
     }
 
-    def containsMethod(obj, methodName) {
+    private def containsMethod(obj, methodName) {
         obj.metaClass.respondsTo obj, methodName
     }
 
-    def getPlural(resource) {
+    private def getPlural(resource) {
         def m = resource =~ /(.*)(Resource.*)/
         def name = m[0][1]
         name = name[0].toLowerCase() + name.substring(1)
         name.plural()
     }
 
-    def getCollectionName(resource) {
+    private def getCollectionName(resource) {
         if (containsMethod(resource, 'plural')) {
             resource.plural()
         }
@@ -76,7 +77,7 @@ class ResourceLoader {
         }
     }
 
-    def loadResource(resFile, map) {
+    private def loadResource(resFile, map) {
         def resName = (resFile.name =~ /(.*)Resource.groovy/)[0][1]
         def h = loadClass(resFile)
         def s = loadSpec(resName)
@@ -89,7 +90,7 @@ class ResourceLoader {
         ]
     }
 
-    def loadFiles() {
+    private def loadFiles() {
         def map = [:]
         new File(cfg.resourcesDir).eachFileRecurse (FileType.FILES) {
             if ( it.name.endsWith('Resource.groovy')) {
@@ -100,7 +101,7 @@ class ResourceLoader {
         map
     }
 
-    def registerResourceAction(resourceDesc, action) {
+    private def registerResourceAction(resourceDesc, action) {
         resourceDesc.actions."$action" = action
         def col = resourceDesc.plural
         def restAction = action
@@ -115,7 +116,7 @@ class ResourceLoader {
         log.info "Registering $col.$action"
     }
 
-    def registerActions(resourceDesc) {
+    private def registerActions(resourceDesc) {
         ['get', 'post', 'put', 'delete', 'getById'].each { action ->
             if (containsMethod(resourceDesc.handler, action)) {
                 registerResourceAction resourceDesc, action
@@ -123,13 +124,13 @@ class ResourceLoader {
         }
     }
 
-    def scaffoldTemplate(template, binding) {
+    private def scaffoldTemplate(template, binding) {
         def tpl = standardTemplates[template].make(binding)
         def finalText = tpl.toString()
         new groovy.json.JsonSlurper().parseText(finalText)
     }
 
-    def registerSpecs(resourceDesc, doc) {
+    private def registerSpecs(resourceDesc, doc) {
         doc.definitions["${resourceDesc.name}"] = resourceDesc.specs.schema()
         if (!resourceDesc.actions.any()) {
             return
