@@ -17,7 +17,7 @@ dependencies {
 
     compile group: 'org.codehaus.groovy.modules.http-builder', name: 'http-builder', version: '0.7'
     compile group: 'org.slf4j', version: '1.7.9', name: 'slf4j-api'
-    compile group: 'org.slf4j', version: '1.7.9', name: 'slf4j-simple'
+    //compile group: 'org.slf4j', version: '1.7.9', name: 'slf4j-simple'
     compile group: 'xom', version: '1.2.5', name: 'xom'
 
     testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
