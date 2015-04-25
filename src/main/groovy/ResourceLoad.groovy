@@ -15,7 +15,7 @@ class ResourceLoader {
 
     ResourceLoader(
         specProperties = ['host': 'localhost', 'version': '0.1', 'description': 'api description', 'title': 'api title'],
-        cfg = [templatesDir: 'templates', resourcesDir:'resources']) {
+        cfg = [templatesDir: 'src/main/resources/templates', resourcesDir:'src/main/groovy/resources']) {
         this.apiCfg = specProperties
         this.cfg = cfg
         loadStandardTemplates()
@@ -89,9 +89,9 @@ class ResourceLoader {
         ]
     }
 
-    def loadFiles(dirPath) {
+    def loadFiles() {
         def map = [:]
-        new File(dirPath).eachFileRecurse (FileType.FILES) {
+        new File(cfg.resourcesDir).eachFileRecurse (FileType.FILES) {
             if ( it.name.endsWith('Resource.groovy')) {
                 // to-do: remove this side effect later on
                 loadResource(it, map)
@@ -141,8 +141,8 @@ class ResourceLoader {
         }
     }
 
-    def registerResources(dirPath) {
-        def map = loadFiles(dirPath)
+    def registerResources() {
+        def map = loadFiles()
         def doc = scaffoldTemplate('api', apiCfg)
 
         map.each {
@@ -157,9 +157,5 @@ class ResourceLoader {
 
             JsonOutput.toJson(doc)
         }
-    }
-
-    def loadAllResources(){
-        registerResources('resources')
     }
 }

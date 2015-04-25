@@ -6,6 +6,6 @@ class Main {
 
     static void initServer() {
         def rs = new ResourceLoader()
-        rs.loadAllResources()
+        rs.registerResources()
     }
 }
