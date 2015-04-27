@@ -49,7 +49,7 @@ class ResourceLoader {
             return loadClass(f)
         }
 
-        return [ spec: { s ->
+        return [ overrideSpec: { s ->
             log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
             s
         }, schema: {
@@ -59,7 +59,7 @@ class ResourceLoader {
     }
 
     private def containsMethod(obj, methodName) {
-        obj.metaClass.respondsTo obj, methodName
+        return obj.metaClass.respondsTo(obj, methodName)
     }
 
     private def getPlural(resource) {
@@ -132,25 +132,30 @@ class ResourceLoader {
 
     private def registerSpecs(resourceDesc, doc) {
         doc.definitions["${resourceDesc.name}"] = resourceDesc.specs.schema()
-        if (!resourceDesc.actions.any()) {
-            return
-        }
-        doc.paths["/${resourceDesc.plural}"] = [:]
-        resourceDesc.actions.each {
-            def singular = resourceDesc.name[0].toLowerCase() + resourceDesc.name.substring(1)
-            def s = scaffoldTemplate(it.key, [
-                'plural': resourceDesc.plural,
-                'resource': resourceDesc.name,
-                'singular': singular,
-                'ref': '$ref' ])
-            if (it.key == 'getById') {
-                doc.paths["/${resourceDesc.plural}/${singular}Id"]= ["get": s]
-                //def path =  "/${resourceDesc.plural}/${singular}Id"
+        def resourcePath = "/${resourceDesc.plural}"
+        if (resourceDesc.actions.any()) {
+            doc.paths[resourcePath] = [:]
+            resourceDesc.actions.each {
+                def singular = resourceDesc.name[0].toLowerCase() + resourceDesc.name.substring(1)
+                def s = scaffoldTemplate(it.key, [
+                        'plural'  : resourceDesc.plural,
+                        'resource': resourceDesc.name,
+                        'singular': singular,
+                        'ref'     : '$ref'])
+
+                if (it.key == 'getById') {
+                    doc.paths["$resourcePath/${singular}Id"] = ["get": s]
+                } else {
+                    doc.paths[resourcePath]["${it.key}"] = s
+                }
             }
-            else {
-                doc.paths["/${resourceDesc.plural}"]["${it.key}"] = s
-            }
         }
+
+        resourceDesc.specs.overrideSpec([
+                fullSpec: doc,
+                resourceSpec: doc.paths[resourcePath],
+                resourcePath: resourcePath
+        ])
     }
 
     def registerResources() {
