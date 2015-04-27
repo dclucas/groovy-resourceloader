@@ -1,10 +1,11 @@
 import groovy.io.FileType
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import groovy.text.SimpleTemplateEngine
 import groovy.util.logging.Slf4j
-import groovy.json.JsonOutput
 
-import static spark.Spark.*
 import spark.*
+import static spark.Spark.*
 
 @Slf4j
 class ResourceLoader {
@@ -53,7 +54,7 @@ class ResourceLoader {
             s
         }, schema: {
             log.warn "No schema defined for resource $resName. References in swagger will be broken."
-            null
+            []
         } ]
     }
 
@@ -111,9 +112,8 @@ class ResourceLoader {
             path += '/:id'
         }
 
-        spark.Spark."$restAction"(path, { req, res -> resourceDesc.handler."$action"(req, res) } )
-
         log.info "Registering $col.$action"
+        spark.Spark."$restAction" path, { req, res -> resourceDesc.handler."$action"(req, res) }
     }
 
     private def registerActions(resourceDesc) {
@@ -127,7 +127,7 @@ class ResourceLoader {
     private def scaffoldTemplate(template, binding) {
         def tpl = standardTemplates[template].make(binding)
         def finalText = tpl.toString()
-        new groovy.json.JsonSlurper().parseText(finalText)
+        new JsonSlurper().parseText(finalText)
     }
 
     private def registerSpecs(resourceDesc, doc) {
@@ -137,8 +137,19 @@ class ResourceLoader {
         }
         doc.paths["/${resourceDesc.plural}"] = [:]
         resourceDesc.actions.each {
-            def s = scaffoldTemplate(it.key, ['plural': resourceDesc.plural, 'resource': resourceDesc.name, 'ref': '$ref' ])
-            doc.paths["/${resourceDesc.plural}"]["${it.key}"] = s
+            def singular = resourceDesc.name[0].toLowerCase() + resourceDesc.name.substring(1)
+            def s = scaffoldTemplate(it.key, [
+                'plural': resourceDesc.plural,
+                'resource': resourceDesc.name,
+                'singular': singular,
+                'ref': '$ref' ])
+            if (it.key == 'getById') {
+                doc.paths["/${resourceDesc.plural}/${singular}Id"]= ["get": s]
+                //def path =  "/${resourceDesc.plural}/${singular}Id"
+            }
+            else {
+                doc.paths["/${resourceDesc.plural}"]["${it.key}"] = s
+            }
         }
     }
 

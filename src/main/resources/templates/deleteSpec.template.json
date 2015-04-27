@@ -1,21 +1,25 @@
 {
-    "description": "Returns a collection of $plural the user has access to.",
-    "tags": ["$plural"],
+    "tags": [
+        "$singular"
+    ],
+    "summary": "Deletes a $singular",
+    "description": "Deletes a $singular",
+    "produces": [
+        "application/json"
+    ],
+    "parameters": [
+        {
+            "in": "path",
+            "name": "${singular}Id",
+            "description": "$resource id to delete",
+            "required": true,
+            "type": "integer",
+            "format": "int64"
+        }
+    ],
     "responses": {
-        "200": {
-            "description": "An array of $plural",
-            "schema": {
-                "type": "array",
-                "items": {
-                    "$ref": "#/definitions/$resource"
-                }
-            }
-        },
-        "default": {
-            "description": "Unexpected error",
-            "schema": {
-                "$ref": "#/definitions/Error"
-            }
+        "400": {
+            "description": "Invalid ${singular} value"
         }
     }
 }

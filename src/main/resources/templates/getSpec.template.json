@@ -11,11 +11,5 @@
                 }
             }
         },
-        "default": {
-            "description": "Unexpected error",
-            "schema": {
-                "$ref": "#/definitions/Error"
-            }
-        }
     }
 }
