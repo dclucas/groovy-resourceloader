@@ -3,11 +3,9 @@ class PostSpec {
 		[
 			properties: [
 				id     : [type: "string"],
-				title  : [type: "string"],
-				petType: [type: "string"]
+				title  : [type: "string"]
 			],
-			discriminator: "petType",
-			required: ["name", "petType"]
+			required: ["id", "title"]
 		]
 	}
 

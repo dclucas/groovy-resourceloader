@@ -12,4 +12,6 @@ class PersonResource {
 	}
 
 	def plural() { 'people' }
+
+	def skipAuthFor() { ['get', 'post']}
 }

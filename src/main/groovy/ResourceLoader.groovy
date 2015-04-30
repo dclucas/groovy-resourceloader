@@ -4,6 +4,11 @@ import groovy.json.JsonSlurper
 import groovy.text.SimpleTemplateEngine
 import groovy.util.logging.Slf4j
 
+import com.fasterxml.jackson.databind.ObjectMapper
+
+import com.github.fge.jackson.JsonLoader
+import com.github.fge.jsonschema.main.JsonSchemaFactory
+
 import spark.*
 import static spark.Spark.*
 
@@ -158,6 +163,22 @@ class ResourceLoader {
         ])
     }
 
+    def jsonSchemaFactory = JsonSchemaFactory.byDefault()
+    def objectMapper = new ObjectMapper()
+
+    def registerValidators(resourceDesc, doc) {
+        def postSchema = jsonSchemaFactory.getJsonSchema(objectMapper.valueToTree(resourceDesc.specs.schema()))
+        spark.Spark.before "/${resourceDesc.plural}", {req, res ->
+            if (req.requestMethod() == 'POST') {
+                // todo: handle parsing errors -- shouldn't they all return a 400?
+                def r = postSchema.validate(JsonLoader.fromString(req.body()))
+                if (!r.isSuccess()) {
+                    halt(400, r.collect({ it.message}).join(','))
+                }
+            }
+         }
+    }
+
     def registerResources() {
         def map = loadFiles()
         def doc = scaffoldTemplate('api', apiCfg)
@@ -165,6 +186,7 @@ class ResourceLoader {
         map.each {
             registerActions it.value
             registerSpecs it.value, doc
+            registerValidators it.value, doc
         }
 
         spark.Spark.get "/swagger", { req, res ->
