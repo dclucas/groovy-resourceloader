@@ -8,7 +8,4 @@ class CommentSpec {
                 required: ["id", "contents"]
         ]
     }
-
-    def overrideSpec(specs) {
-    }
 }

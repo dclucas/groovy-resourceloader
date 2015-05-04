@@ -48,37 +48,32 @@ class ResourceLoader {
         gcl.parseClass(file).newInstance()
     }
 
-    private def addMethods(obj, closures) {
-        closures.each {
-            if (! containsMethod(obj, it.name)) {
-                obj."${it.name}" = it
+    private def addMethods(obj, closuresBag) {
+        closuresBag.each {
+            if (! containsMethod(obj, it.key)) {
+                obj.metaClass."${it.key}" = it.value
             }
         }
     }
 
     private def loadSpec(resName) {
-        def f = new File("${cfg.resourcesDir}/${resName}Spec.groovy")
-        def overrideFunc = { specs ->
-            log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
-            specs
-        }
-        def schemaFunc = {
-            log.warn "No schema defined for resource $resName. References in swagger will be broken."
-            []
-        }
-
-        if (f.exists()) {
-            def spec = loadClass(f)
-            if (!containsMethod(spec, 'overrideSpec' )) {
-                spec.overrideSpec = overrideFunc
+        def dummySpec = [
+            overrideSpec: { specs ->
+                log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
+                specs
+            },
+            schema: {
+                log.warn "No schema defined for resource $resName. References in swagger will be broken."
+                []
             }
+        ]
 
-            return spec
+        def f = new File("${cfg.resourcesDir}/${resName}Spec.groovy")
+        if (f.exists()) {
+            return addMethods(loadClass(f), dummySpec)
         }
 
-        return [ schema: schemaFunc,
-            overrideSpec: overrideFunc
-        ]
+        return dummySpec
     }
 
     private def containsMethod(obj, methodName) {
