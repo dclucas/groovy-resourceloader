@@ -5,6 +5,7 @@ import static groovyx.net.http.ContentType.JSON
 class ResourceLoaderTest extends Specification{
     def "someLibraryMethod returns true"() {
         setup:
+        Main.initServer()
         when:
         def client = new RESTClient("http://localhost:4567/", JSON)
         def resp = client.get(path : "swagger")

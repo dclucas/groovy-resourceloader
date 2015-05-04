@@ -8,4 +8,7 @@ class PersonSpec {
                 required: ["id", "name"]
         ]
     }
+
+    def overrideSpec(specs) {
+    }
 }
