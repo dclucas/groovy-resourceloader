@@ -48,19 +48,37 @@ class ResourceLoader {
         gcl.parseClass(file).newInstance()
     }
 
+    private def addMethods(obj, closures) {
+        closures.each {
+            if (! containsMethod(obj, it.name)) {
+                obj."${it.name}" = it
+            }
+        }
+    }
+
     private def loadSpec(resName) {
         def f = new File("${cfg.resourcesDir}/${resName}Spec.groovy")
-        if (f.exists()) {
-            return loadClass(f)
-        }
-
-        return [ overrideSpec: { s ->
+        def overrideFunc = { specs ->
             log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
-            s
-        }, schema: {
+            specs
+        }
+        def schemaFunc = {
             log.warn "No schema defined for resource $resName. References in swagger will be broken."
             []
-        } ]
+        }
+
+        if (f.exists()) {
+            def spec = loadClass(f)
+            if (!containsMethod(spec, 'overrideSpec' )) {
+                spec.overrideSpec = overrideFunc
+            }
+
+            return spec
+        }
+
+        return [ schema: schemaFunc,
+            overrideSpec: overrideFunc
+        ]
     }
 
     private def containsMethod(obj, methodName) {
