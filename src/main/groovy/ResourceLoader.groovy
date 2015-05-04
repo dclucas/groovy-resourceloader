@@ -4,6 +4,11 @@ import groovy.json.JsonSlurper
 import groovy.text.SimpleTemplateEngine
 import groovy.util.logging.Slf4j
 
+import com.fasterxml.jackson.databind.ObjectMapper
+
+import com.github.fge.jackson.JsonLoader
+import com.github.fge.jsonschema.main.JsonSchemaFactory
+
 import spark.*
 import static spark.Spark.*
 
@@ -34,7 +39,7 @@ class ResourceLoader {
             'get'    : loadStandardTemplate('get'),
             'getById': loadStandardTemplate('getById'),
             'post'   : loadStandardTemplate('post'),
-            'put'    : loadStandardTemplate('put'),
+            'patch'    : loadStandardTemplate('patch'),
             'delete' : loadStandardTemplate('delete')
         ]
     }
@@ -49,7 +54,7 @@ class ResourceLoader {
             return loadClass(f)
         }
 
-        return [ spec: { s ->
+        return [ overrideSpec: { s ->
             log.info "No spec overrides defined for $resName. Standard (dummy) text will be used."
             s
         }, schema: {
@@ -59,7 +64,7 @@ class ResourceLoader {
     }
 
     private def containsMethod(obj, methodName) {
-        obj.metaClass.respondsTo obj, methodName
+        return obj.metaClass.respondsTo(obj, methodName)
     }
 
     private def getPlural(resource) {
@@ -103,21 +108,27 @@ class ResourceLoader {
     }
 
     private def registerResourceAction(resourceDesc, action) {
-        resourceDesc.actions."$action" = action
         def col = resourceDesc.plural
+        log.info "Registering $col.$action"
         def restAction = action
         def path = "/$col"
-        if (action == 'getById') {
-            restAction = "get"
-            path += '/:id'
+        resourceDesc.actions."$action" = action
+        switch(action) {
+            case 'getById':
+                restAction = "get"
+                path += '/:id'
+                break
+            case 'delete':
+            case 'patch':
+                path += '/:id'
+                break
         }
 
-        log.info "Registering $col.$action"
         spark.Spark."$restAction" path, { req, res -> resourceDesc.handler."$action"(req, res) }
     }
 
     private def registerActions(resourceDesc) {
-        ['get', 'post', 'put', 'delete', 'getById'].each { action ->
+        ['get', 'post', 'patch', 'delete', 'getById'].each { action ->
             if (containsMethod(resourceDesc.handler, action)) {
                 registerResourceAction resourceDesc, action
             }
@@ -132,25 +143,46 @@ class ResourceLoader {
 
     private def registerSpecs(resourceDesc, doc) {
         doc.definitions["${resourceDesc.name}"] = resourceDesc.specs.schema()
-        if (!resourceDesc.actions.any()) {
-            return
-        }
-        doc.paths["/${resourceDesc.plural}"] = [:]
-        resourceDesc.actions.each {
-            def singular = resourceDesc.name[0].toLowerCase() + resourceDesc.name.substring(1)
-            def s = scaffoldTemplate(it.key, [
-                'plural': resourceDesc.plural,
-                'resource': resourceDesc.name,
-                'singular': singular,
-                'ref': '$ref' ])
-            if (it.key == 'getById') {
-                doc.paths["/${resourceDesc.plural}/${singular}Id"]= ["get": s]
-                //def path =  "/${resourceDesc.plural}/${singular}Id"
+        def resourcePath = "/${resourceDesc.plural}"
+        if (resourceDesc.actions.any()) {
+            doc.paths[resourcePath] = [:]
+            resourceDesc.actions.each {
+                def singular = resourceDesc.name[0].toLowerCase() + resourceDesc.name.substring(1)
+                def s = scaffoldTemplate(it.key, [
+                        'plural'  : resourceDesc.plural,
+                        'resource': resourceDesc.name,
+                        'singular': singular,
+                        'ref'     : '$ref'])
+
+                if (it.key == 'getById') {
+                    doc.paths["$resourcePath/${singular}Id"] = ["get": s]
+                } else {
+                    doc.paths[resourcePath]["${it.key}"] = s
+                }
             }
-            else {
-                doc.paths["/${resourceDesc.plural}"]["${it.key}"] = s
-            }
         }
+
+        resourceDesc.specs.overrideSpec([
+                fullSpec: doc,
+                resourceSpec: doc.paths[resourcePath],
+                resourcePath: resourcePath
+        ])
+    }
+
+    def jsonSchemaFactory = JsonSchemaFactory.byDefault()
+    def objectMapper = new ObjectMapper()
+
+    def registerValidators(resourceDesc, doc) {
+        def postSchema = jsonSchemaFactory.getJsonSchema(objectMapper.valueToTree(resourceDesc.specs.schema()))
+        spark.Spark.before "/${resourceDesc.plural}", {req, res ->
+            if (req.requestMethod() == 'POST') {
+                // todo: handle parsing errors -- shouldn't they all return a 400?
+                def validationResults = postSchema.validate(JsonLoader.fromString(req.body()))
+                if (!validationResults.isSuccess()) {
+                    halt(400, validationResults.collect({ it.message}).join(','))
+                }
+            }
+         }
     }
 
     def registerResources() {
@@ -160,6 +192,7 @@ class ResourceLoader {
         map.each {
             registerActions it.value
             registerSpecs it.value, doc
+            registerValidators it.value, doc
         }
 
         spark.Spark.get "/swagger", { req, res ->

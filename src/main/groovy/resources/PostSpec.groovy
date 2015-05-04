@@ -1,16 +1,15 @@
 class PostSpec {
 	def schema() {
 		[
-			discriminator: "petType",
 			properties: [
-				name   : [type: "string"],
-				petType: [type: "string"]
+				id     : [type: "string"],
+				title  : [type: "string"]
 			],
-			required: ["name", "petType"]
+			required: ["id", "title"]
 		]
 	}
 
-	def spec(specs) {
-		specs['get'].description = "Overwritten description for the get operation."
+	def overrideSpec(specs) {
+		specs.resourceSpec['get'].description = "Overwritten description for the get operation."
 	}
 }
