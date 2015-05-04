@@ -11,6 +11,10 @@ class PersonResource {
 		return '{id:"1"}'
 	}
 
+	def patch(req, resp) {
+		'Data patched!'
+	}
+
 	def plural() { 'people' }
 
 	def skipAuthFor() { ['get', 'post']}

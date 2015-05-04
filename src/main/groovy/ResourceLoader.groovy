@@ -39,7 +39,7 @@ class ResourceLoader {
             'get'    : loadStandardTemplate('get'),
             'getById': loadStandardTemplate('getById'),
             'post'   : loadStandardTemplate('post'),
-            'put'    : loadStandardTemplate('put'),
+            'patch'    : loadStandardTemplate('patch'),
             'delete' : loadStandardTemplate('delete')
         ]
     }
@@ -108,21 +108,27 @@ class ResourceLoader {
     }
 
     private def registerResourceAction(resourceDesc, action) {
-        resourceDesc.actions."$action" = action
         def col = resourceDesc.plural
+        log.info "Registering $col.$action"
         def restAction = action
         def path = "/$col"
-        if (action == 'getById') {
-            restAction = "get"
-            path += '/:id'
+        resourceDesc.actions."$action" = action
+        switch(action) {
+            case 'getById':
+                restAction = "get"
+                path += '/:id'
+                break
+            case 'delete':
+            case 'patch':
+                path += '/:id'
+                break
         }
 
-        log.info "Registering $col.$action"
         spark.Spark."$restAction" path, { req, res -> resourceDesc.handler."$action"(req, res) }
     }
 
     private def registerActions(resourceDesc) {
-        ['get', 'post', 'put', 'delete', 'getById'].each { action ->
+        ['get', 'post', 'patch', 'delete', 'getById'].each { action ->
             if (containsMethod(resourceDesc.handler, action)) {
                 registerResourceAction resourceDesc, action
             }
@@ -171,9 +177,9 @@ class ResourceLoader {
         spark.Spark.before "/${resourceDesc.plural}", {req, res ->
             if (req.requestMethod() == 'POST') {
                 // todo: handle parsing errors -- shouldn't they all return a 400?
-                def r = postSchema.validate(JsonLoader.fromString(req.body()))
-                if (!r.isSuccess()) {
-                    halt(400, r.collect({ it.message}).join(','))
+                def validationResults = postSchema.validate(JsonLoader.fromString(req.body()))
+                if (!validationResults.isSuccess()) {
+                    halt(400, validationResults.collect({ it.message}).join(','))
                 }
             }
          }
