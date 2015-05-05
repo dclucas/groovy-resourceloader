@@ -192,7 +192,7 @@ class ResourceLoader {
                 // todo: handle parsing errors -- shouldn't they all return a 400?
                 def validationResults = postSchema.validate(JsonLoader.fromString(req.body()))
                 if (!validationResults.isSuccess()) {
-                    halt(400, validationResults.collect({ it.message}).join(','))
+                    halt 400, validationResults.messages.toString()
                 }
             }
          }
